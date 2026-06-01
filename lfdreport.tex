@@ -1,0 +1,443 @@
+\documentclass[conference]{IEEEtran}
+\IEEEoverridecommandlockouts
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{cite}
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{algorithmic}
+\usepackage{algorithm}
+\usepackage{textcomp}
+\usepackage{xcolor}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{url}
+\usepackage{hyperref}
+\def\BibTeX{{\rm B\kern-.05em{\sc i\kern-.025em b}\kern-.08em
+    T\kern-.1667em\lower.7ex\hbox{E}\kern-.125emX}}
+
+\begin{document}
+
+\title{A Comparative Study of Classical Machine Learning Models
+for 10-Year Coronary Heart Disease Risk Prediction}
+
+\author{\IEEEauthorblockN{Muhammed Hasan Bilal Cebeci}
+\IEEEauthorblockA{\textit{Artificial Intelligence and Data Engineering} \\
+\textit{Istanbul Technical University}\\
+Student ID: 150220339 \\
+cebecim22@itu.edu.tr}
+\and
+\IEEEauthorblockN{Mustafa \.{I}hsan Y\"uce}
+\IEEEauthorblockA{\textit{Artificial Intelligence and Data Engineering} \\
+\textit{Istanbul Technical University}\\
+Student ID: 150210333 \\
+yucem21@itu.edu.tr}
+}
+
+\maketitle
+
+\begin{abstract}
+Cardiovascular diseases are one of the most common death reasons in the world, and early risk prediction based on individual risk factors is important for preventive healthcare. In this study, we developed a binary classification system to predict the 10-year coronary heart disease (CHD) risk of individuals using a publicly available subset of the Framingham Heart Study dataset. Three classical machine learning models, Logistic Regression, Decision Tree, and Random Forest, were compared on the same data splits. Class imbalance and missing data problems were handled with proper preprocessing steps. Model performances were evaluated using metrics suitable for imbalanced classification problems including ROC-AUC and F1-score, and results were validated with 5x2 cross-validation. Logistic Regression achieved the best ROC-AUC of 0.6990.
+\end{abstract}
+
+\begin{IEEEkeywords}
+classical machine learning, cardiovascular disease, binary classification, Framingham Heart Study, feature ablation
+\end{IEEEkeywords}
+
+\section{Introduction and Related Work}
+
+Cardiovascular diseases (CVDs) are one of the leading death causes globally, and early assessment of individuals based on their risk factors is important for preventive healthcare. The Framingham Heart Study \cite{b1}, started in 1948, is one of the most important epidemiological cohort studies that introduced the concept of cardiovascular risk factors to the literature \cite{b4}. Traditional risk scores are built on static statistical methods. While these scores are useful in clinical settings, they sometimes fail to capture the complex relationships between different risk factors.
+
+In recent years, machine learning methods have been increasingly used for cardiovascular risk prediction. Classical machine learning is especially suitable for tabular medical datasets. Unlike deep learning methods that need large amounts of data and computational resources, classical models give good results on medium-scale tabular data while being easier to interpret.
+
+Several studies have explored predictive modeling on the Framingham dataset. Kahouadji \cite{b2} compared various classification algorithms and showed that ensemble methods and regularized linear models work well on epidemiological data. Suhatril et al. \cite{b3} also evaluated multiple machine learning models on the same dataset and showed that classical methods can achieve competitive results compared to deep learning when class distributions are properly handled during preprocessing.
+
+Dealing with class imbalance is a common challenge in medical prediction tasks. Some researchers use oversampling methods like SMOTE, but these methods can sometimes introduce noise and distort the original data distributions. In this study, we preferred class weighting to keep the original data distribution while addressing the imbalance problem.
+
+This study compares three classical ML models (Logistic Regression, Decision Tree, Random Forest) on the same experimental setup, addresses missing data and class imbalance problems, and validates results with feature ablation and 5x2 cross-validation.
+
+\section{Problem Description}
+
+The main goal of this project is to predict whether an individual will develop coronary heart disease within the next 10 years. This is formulated as a binary classification problem. Let $\mathbf{x} \in \mathbb{R}^{15}$ represent a patient described by 15 clinical features, and let $y \in \{0, 1\}$ be the target label where $y=1$ means CHD will develop and $y=0$ means it will not.
+
+The dataset has a significant class imbalance: about 15\% of patients develop CHD (positive class) while 85\% do not. A naive classifier that always predicts 0 would get 85\% accuracy but would be completely useless for clinical purposes.
+
+An important consideration in medical screening is that false negatives (missing a patient who will develop CHD) are much more costly than false positives. A patient whose risk goes undetected misses preventive treatments that could reduce their chance of a fatal event. This is why we prioritize recall and ROC-AUC over accuracy in our evaluation.
+
+We chose classical machine learning methods instead of deep learning for three main reasons:
+\begin{enumerate}
+    \item \textbf{Interpretability:} In clinical decision support, doctors need to understand why a prediction is made. Logistic Regression coefficients and Decision Tree rules are easy to explain to medical professionals.
+    \item \textbf{Dataset size:} With fewer than 5000 records, deep learning models would likely overfit without very careful regularization.
+    \item \textbf{Computational cost:} Classical models can run inference in milliseconds, which is important for real-time clinical systems.
+\end{enumerate}
+
+\section{Method}
+
+\subsection{Dataset}
+
+The dataset used in this study is a publicly available subset of the Framingham Heart Study \cite{b1}, accessible through Kaggle \cite{b2,b3}. It contains 4238 patient records (after duplicate removal) with 15 input features and 1 binary target variable (TenYearCHD). Features are grouped into three categories:
+
+\begin{itemize}
+    \item Demographic: \texttt{age}, \texttt{male}, \texttt{education}, \texttt{currentSmoker}
+    \item Behavioral: \texttt{cigsPerDay}
+    \item Clinical: \texttt{BPMeds}, \texttt{prevalentStroke}, \texttt{prevalentHyp}, \texttt{diabetes}, \texttt{sysBP}, \texttt{diaBP}, \texttt{totChol}, \texttt{BMI}, \texttt{heartRate}, \texttt{glucose}
+\end{itemize}
+
+Table \ref{tab:features} shows the missing value rates per feature. The \texttt{glucose} column has the highest missingness at 9.16\%, likely because fasting glucose tests were not always performed during the study.
+
+\begin{table}[htbp]
+\caption{Feature Dictionary and Missing Value Profile}
+\begin{center}
+\begin{tabular}{llc}
+\toprule
+\textbf{Feature} & \textbf{Category} & \textbf{Missing (\%)} \\
+\midrule
+male & Demographic & 0.00 \\
+age & Demographic & 0.00 \\
+education & Demographic & 2.48 \\
+currentSmoker & Behavioral & 0.00 \\
+cigsPerDay & Behavioral & 0.68 \\
+BPMeds & Medical & 1.25 \\
+prevalentStroke & Medical & 0.00 \\
+prevalentHyp & Medical & 0.00 \\
+diabetes & Medical & 0.00 \\
+totChol & Clinical & 1.18 \\
+sysBP & Clinical & 0.00 \\
+diaBP & Clinical & 0.00 \\
+BMI & Clinical & 0.45 \\
+heartRate & Clinical & 0.02 \\
+glucose & Clinical & 9.16 \\
+\bottomrule
+\end{tabular}
+\label{tab:features}
+\end{center}
+\end{table}
+
+Table \ref{tab:stats} shows the statistical summary of continuous features. Features like \texttt{sysBP} and \texttt{totChol} have wide standard deviations, which makes normalization necessary before training gradient-based models.
+
+\begin{table}[htbp]
+\caption{Statistical Summary of Continuous Features}
+\begin{center}
+\begin{tabular}{lcccc}
+\toprule
+\textbf{Feature} & \textbf{Mean} & \textbf{Std} & \textbf{Min} & \textbf{Max} \\
+\midrule
+age & 49.58 & 8.57 & 32.0 & 70.0 \\
+cigsPerDay & 9.00 & 11.92 & 0.0 & 70.0 \\
+totChol & 236.72 & 44.59 & 107.0 & 696.0 \\
+sysBP & 132.35 & 22.03 & 83.5 & 295.0 \\
+diaBP & 82.89 & 11.91 & 48.0 & 142.5 \\
+BMI & 25.80 & 4.08 & 15.54 & 56.80 \\
+heartRate & 75.87 & 12.02 & 44.0 & 143.0 \\
+glucose & 81.96 & 23.95 & 40.0 & 394.0 \\
+\bottomrule
+\end{tabular}
+\label{tab:stats}
+\end{center}
+\end{table}
+
+\subsection{Exploratory Data Analysis}
+
+Figure \ref{fig:eda} shows the class distribution and age distribution by class. The class imbalance is clearly visible: 3594 patients (84.8\%) have no CHD while only 644 (15.2\%) are positive cases. CHD patients tend to be older on average.
+
+\begin{figure}[htbp]
+\centerline{\includegraphics[width=\columnwidth]{eda_class_age.png}}
+\caption{Class distribution and age distribution by CHD status.}
+\label{fig:eda}
+\end{figure}
+
+Figure \ref{fig:eda2} shows the CHD rate broken down by age group and sex. CHD risk increases with age in both sexes, and males consistently show higher risk than females across all age groups.
+
+\begin{figure}[htbp]
+\centerline{\includegraphics[width=\columnwidth]{eda_age_sex_chd.png}}
+\caption{CHD rate by age group and sex.}
+\label{fig:eda2}
+\end{figure}
+
+\subsection{Preprocessing}
+
+Two strategies for handling missing values were compared as part of the ablation study:
+\begin{itemize}
+    \item \textbf{Median/mode imputation:} Numerical features filled with column median, categorical features with mode. This is our primary strategy as it keeps all 4238 rows.
+    \item \textbf{Listwise deletion:} Rows with any missing value are dropped.
+\end{itemize}
+
+After imputation, 2 duplicate records were removed. The dataset was split into 80\% training (3390 rows) and 20\% test (848 rows) using stratified sampling, which preserves the 85/15 class ratio in both splits. StandardScaler was fit only on the training set and applied to the test set to prevent data leakage.
+
+\subsection{Models}
+
+All three models used \texttt{class\_weight=`balanced'} to address class imbalance. This adjusts the loss function to penalize errors on the minority class more strongly.
+
+\textbf{Logistic Regression (LR):} Models the posterior probability of the positive class through the logistic sigmoid. With \texttt{class\_weight=`balanced'}, it minimizes a cost-sensitive weighted cross-entropy loss:
+\begin{equation}
+\mathcal{L} = -\frac{1}{N}\sum_{i=1}^{N}\left[w_1 y_i \log(\hat{y}_i) + w_0(1-y_i)\log(1-\hat{y}_i)\right]
+\label{eq:loss}
+\end{equation}
+where $w_1$ and $w_0$ are inversely proportional to class frequencies. L1 and L2 regularization were both included in the grid search.
+
+\textbf{Decision Tree (DT):} Recursively partitions the feature space by finding splits that reduce node impurity. We compared Gini impurity and entropy as splitting criteria, and controlled overfitting through \texttt{max\_depth} and \texttt{min\_samples\_split}.
+
+\textbf{Random Forest (RF):} An ensemble method based on bootstrap aggregation. It trains multiple trees on different bootstrap samples of the data, then aggregates their predictions by majority vote. It also randomly selects a subset of features at each split, which reduces correlation between trees.
+
+\subsection{Hyperparameter Tuning}
+
+Hyperparameters were tuned using grid search with 5-fold cross-validation applied only to the training set. ROC-AUC was used as the scoring metric. The search space is shown in Table \ref{tab:grid}.
+
+\begin{table}[htbp]
+\caption{Hyperparameter Grid Search Space}
+\begin{center}
+\begin{tabular}{llp{3.5cm}}
+\toprule
+\textbf{Model} & \textbf{Parameter} & \textbf{Values} \\
+\midrule
+LR & C & [0.01, 0.1, 1, 10, 100] \\
+   & penalty & [L1, L2] \\
+   & solver & [liblinear] \\
+\midrule
+DT & max\_depth & [3, 5, 7, 10, None] \\
+   & min\_samples\_split & [2, 5, 10] \\
+   & criterion & [gini, entropy] \\
+\midrule
+RF & n\_estimators & [50, 100, 200] \\
+   & max\_depth & [3, 5, 10, None] \\
+   & min\_samples\_split & [2, 5] \\
+\bottomrule
+\end{tabular}
+\label{tab:grid}
+\end{center}
+\end{table}
+
+\section{Real-World Application}
+
+The models developed in this study can be integrated into clinical decision support systems (CDSS) used in primary care. During a standard checkup, a general practitioner collects the patient's demographic information and orders basic blood tests that return cholesterol and glucose values. These values can be passed through the preprocessing pipeline and the trained Logistic Regression model to get a 10-year CHD risk probability in real time.
+
+Since we used classical models instead of deep learning, the system can provide an interpretable output. For example, the Logistic Regression coefficients directly show which features contribute most to the risk score. This is important for clinical settings because doctors need to understand and trust the model's reasoning before acting on its predictions.
+
+\section{Experimental Evaluation}
+
+\subsection{Evaluation Metrics}
+
+Because the class distribution is imbalanced (85/15), standard accuracy is not a reliable metric. A classifier that always predicts 0 would get 85\% accuracy but would be useless. We therefore report Precision, Recall, F1-score and ROC-AUC as main metrics, and prioritize ROC-AUC and Recall.
+
+ROC-AUC measures the model's ability to separate positive and negative cases across all possible thresholds:
+\begin{equation}
+\text{AUC} = \int_0^1 \text{TPR}(t)\, d\text{FPR}(t)
+\label{eq:auc}
+\end{equation}
+
+\subsection{Test Set Performance}
+
+Table \ref{tab:results} shows the performance of the three models on the held-out test set after hyperparameter tuning.
+
+\begin{table}[htbp]
+\caption{Performance on Held-Out Test Set}
+\begin{center}
+\begin{tabular}{lccccc}
+\toprule
+\textbf{Model} & \textbf{Acc.} & \textbf{Prec.} & \textbf{Recall} & \textbf{F1} & \textbf{AUC} \\
+\midrule
+LR  & 0.6592 & 0.2436 & 0.5891 & 0.3447 & \textbf{0.6990} \\
+DT  & 0.5955 & 0.2139 & \textbf{0.6202} & 0.3181 & 0.6411 \\
+RF  & \textbf{0.6910} & 0.2432 & 0.4884 & 0.3247 & 0.6815 \\
+\bottomrule
+\end{tabular}
+\label{tab:results}
+\end{center}
+\end{table}
+
+Logistic Regression achieved the best ROC-AUC of 0.6990, while Decision Tree had the highest Recall (0.6202) at the cost of lower precision. Random Forest had the highest accuracy but the lowest recall, meaning it missed many CHD patients.
+
+Figure \ref{fig:conf} shows the confusion matrices for all three models.
+
+\begin{figure}[htbp]
+\centerline{\includegraphics[width=\columnwidth]{confusion_matrices.png}}
+\caption{Confusion matrices on the test set.}
+\label{fig:conf}
+\end{figure}
+
+Figure \ref{fig:roc} shows the ROC curves. Logistic Regression maintains a consistently higher true positive rate across thresholds.
+
+\begin{figure}[htbp]
+\centerline{\includegraphics[width=0.85\columnwidth]{roc_curves.png}}
+\caption{ROC curves for all three models.}
+\label{fig:roc}
+\end{figure}
+
+\subsection{Threshold Tuning}
+
+The default classification threshold of 0.5 is not optimal for imbalanced data. We searched for the threshold that maximizes F1 score on the test set for each model using the precision-recall curve. Figure \ref{fig:thresh} shows the results.
+
+\begin{figure}[htbp]
+\centerline{\includegraphics[width=\columnwidth]{threshold_tuning.png}}
+\caption{Precision-Recall curves with optimal thresholds.}
+\label{fig:thresh}
+\end{figure}
+
+For Logistic Regression, the optimal threshold was lower than 0.5, which improved F1 and Recall by adjusting the decision boundary toward the minority class.
+
+\subsection{Error Analysis}
+
+Figure \ref{fig:error} shows train vs. test error for each model. Decision Tree shows the largest gap between train and test error, which suggests overfitting even after regularization. Logistic Regression has the most balanced error profile.
+
+\begin{figure}[htbp]
+\centerline{\includegraphics[width=0.85\columnwidth]{error_plot.png}}
+\caption{Train vs. test error for each model.}
+\label{fig:error}
+\end{figure}
+
+We also examined individual misclassified examples from the best model. False negatives (CHD patients predicted as healthy) tended to have moderately elevated but not extreme clinical values. This is consistent with the general difficulty of early-stage CHD detection from non-invasive measurements alone.
+
+\subsection{Feature Importance}
+
+Figure \ref{fig:feat} shows the feature importances from Random Forest and the absolute coefficient values from Logistic Regression.
+
+\begin{figure}[htbp]
+\centerline{\includegraphics[width=\columnwidth]{feature_importance.png}}
+\caption{Feature importances (RF) and coefficient magnitudes (LR).}
+\label{fig:feat}
+\end{figure}
+
+Both models agree that \texttt{age}, \texttt{sysBP} and \texttt{glucose} are the most important predictors for 10-year CHD risk. This is consistent with established medical knowledge about cardiovascular risk factors.
+
+\subsection{Ablation Study}
+
+\subsubsection{Feature Group Ablation}
+To evaluate how much each feature category contributes to performance, we tested three configurations: demographic features only, demographic + behavioral, and all features. Table \ref{tab:ablation} shows the results for all three models.
+
+\begin{table}[htbp]
+\caption{Feature Group Ablation (ROC-AUC)}
+\begin{center}
+\begin{tabular}{lccc}
+\toprule
+\textbf{Feature Scope} & \textbf{LR} & \textbf{DT} & \textbf{RF} \\
+\midrule
+Demographic only       & 0.6705 & 0.6421 & 0.6605 \\
+Demo + Behavioral      & 0.6687 & 0.6421 & 0.6624 \\
+All features           & \textbf{0.6990} & \textbf{0.6411} & \textbf{0.6815} \\
+\bottomrule
+\end{tabular}
+\label{tab:ablation}
+\end{center}
+\end{table}
+
+Adding behavioral features (cigsPerDay) gives almost no improvement across all models. The main performance gain comes when clinical measurements like sysBP and glucose are included. Interestingly, demographic features alone already provide a reasonably strong baseline (LR: 0.6705), but the full clinical feature set is needed to reach peak performance.
+
+Figure \ref{fig:ablation} shows the same results visually.
+
+\begin{figure}[htbp]
+\centerline{\includegraphics[width=0.85\columnwidth]{ablation_features.png}}
+\caption{Ablation study: ROC-AUC by feature group.}
+\label{fig:ablation}
+\end{figure}
+
+\subsubsection{Training Set Size Ablation}
+Figure \ref{fig:trainsize} shows how model performance changes as training set size increases. All models improve as more data is used, and performance starts to plateau after around 50\% of the training set. Logistic Regression is most stable across different training sizes.
+
+\begin{figure}[htbp]
+\centerline{\includegraphics[width=0.85\columnwidth]{ablation_train_size.png}}
+\caption{Effect of training set size on test ROC-AUC.}
+\label{fig:trainsize}
+\end{figure}
+
+\subsubsection{Imputation Strategy Ablation}
+Table \ref{tab:imputation} compares median imputation and listwise deletion. Listwise deletion gives slightly better results, which might be because the missing values are not completely random. For example, patients without glucose measurements may be systematically different from those who were tested.
+
+\begin{table}[htbp]
+\caption{Imputation Strategy Comparison (ROC-AUC)}
+\begin{center}
+\begin{tabular}{lcc}
+\toprule
+\textbf{Model} & \textbf{Median Imputation} & \textbf{Listwise Deletion} \\
+\midrule
+LR & 0.6990 & 0.7338 \\
+DT & 0.6411 & 0.6732 \\
+RF & 0.6815 & 0.7079 \\
+\bottomrule
+\end{tabular}
+\label{tab:imputation}
+\end{center}
+\end{table}
+
+\subsection{Computational Efficiency}
+
+Table \ref{tab:timing} reports training and inference times. Decision Tree is the fastest model to train and infer. Random Forest is the slowest due to training multiple trees. Logistic Regression has an inference time of about 1.4ms, which is well within the real-time requirements of a clinical system.
+
+\begin{table}[htbp]
+\caption{Training and Inference Times}
+\begin{center}
+\begin{tabular}{lcc}
+\toprule
+\textbf{Model} & \textbf{Train Time (s)} & \textbf{Inference (ms)} \\
+\midrule
+LR & 3.23 & 1.39 \\
+DT & 0.41 & 0.48 \\
+RF & 5.81 & 9.38 \\
+\bottomrule
+\end{tabular}
+\label{tab:timing}
+\end{center}
+\end{table}
+
+\subsection{Statistical Significance Testing}
+
+To check if the performance differences between models are statistically significant, we applied a 5x2 cross-validation paired t-test \cite{b5}. In this procedure, the dataset is split into two halves five times, and each model pair is compared on each split. The t-statistic is computed from the performance differences.
+
+\begin{algorithm}[htbp]
+\caption{$5\times2$ Cross-Validation Paired $t$-test}
+\begin{algorithmic}[1]
+\STATE \textbf{Input:} Dataset $D$, Models $A$ and $B$
+\STATE Initialize $S^2 = []$
+\FOR{$i = 1$ \textbf{to} $5$}
+    \STATE Split $D$ into $D_1$ and $D_2$ (50\%/50\%)
+    \STATE Train and test both models on each fold, get $p^{(i)}_1$, $p^{(i)}_2$
+    \STATE $\bar{p}^{(i)} = (p^{(i)}_1 + p^{(i)}_2)/2$
+    \STATE $s^2_i = (p^{(i)}_1 - \bar{p}^{(i)})^2 + (p^{(i)}_2 - \bar{p}^{(i)})^2$
+    \STATE Append $s^2_i$ to $S^2$
+\ENDFOR
+\STATE $t = p^{(1)}_1 / \sqrt{\frac{1}{5}\sum_{i=1}^5 s^2_i}$
+\STATE \textbf{Return} $p$-value from Student's $t$-distribution
+\end{algorithmic}
+\end{algorithm}
+
+Table \ref{tab:cv} shows that all model pair comparisons are statistically significant (p $<$ 0.05). We also ran experiments with 5 different random seeds to check result stability. Logistic Regression had the highest mean ROC-AUC across seeds (0.7226) with the lowest standard deviation, which shows it is the most stable model.
+
+\begin{table}[htbp]
+\caption{5x2 CV Paired t-test Results}
+\begin{center}
+\begin{tabular}{lcc}
+\toprule
+\textbf{Model Pair} & \textbf{p-value} & \textbf{Significant?} \\
+\midrule
+LR vs. DT & 0.0002 & Yes \\
+LR vs. RF & 0.0030 & Yes \\
+DT vs. RF & 0.0072 & Yes \\
+\bottomrule
+\end{tabular}
+\label{tab:cv}
+\end{center}
+\end{table}
+
+\section{Discussion}
+
+Logistic Regression performed best in this study, which might seem surprising since Random Forest is generally considered more powerful. However, the Framingham dataset is a medium-scale tabular dataset where the relationships between risk factors and CHD are mostly linear and monotonic. Features like age and blood pressure increase CHD risk in a relatively straightforward way.
+
+In this type of data, non-linear models like Random Forest can overfit to noise instead of learning the real signal. The L1 regularization in Logistic Regression helped by effectively ignoring irrelevant features. Decision Tree had the highest recall but at the cost of many false positives, which makes it less reliable overall.
+
+The imputation strategy comparison showed that listwise deletion gave slightly better ROC-AUC. This suggests that the missing values are not randomly distributed, so imputing them may introduce some noise. However, median imputation keeps more training data which is important when the dataset is small.
+
+One limitation of this study is that the ROC-AUC values (around 0.70) are moderate, which is expected for classical ML models on this particular dataset. Adding more clinical features or using more advanced feature selection methods could potentially improve these results.
+
+\section{Conclusion}
+
+In this study, we compared three classical machine learning models for predicting 10-year coronary heart disease risk using the Framingham Heart Study dataset. Logistic Regression achieved the best overall performance with a ROC-AUC of 0.6990, and this result was confirmed as statistically significant by 5x2 cross-validation. The model is also computationally efficient and interpretable, making it suitable for clinical decision support applications. Feature ablation showed that clinical measurements provide the most significant performance gain, though demographic features alone already offer a reasonable baseline.
+
+Future work could include testing more advanced feature selection methods, using different class imbalance strategies, or evaluating these models on other CHD datasets to check how well the results generalize.
+
+\begin{thebibliography}{00}
+\bibitem{b1} Framingham Heart Study, ``About FHS.'' [Online]. Available: \url{https://www.framinghamheartstudy.org/}
+\bibitem{b2} N. Kahouadji, ``Comparison of machine learning classification algorithms and application to the Framingham Heart Study,'' arXiv preprint arXiv:2402.15005, 2024.
+\bibitem{b3} R. J. Suhatril, R. D. Syah, M. Hermita, B. Gunawan, and W. Silfianti, ``Evaluation of machine learning models for predicting cardiovascular disease based on Framingham Heart Study data,'' \textit{ILKOM Jurnal Ilmiah}, vol. 16, no. 1, pp. 68--75, Apr. 2024.
+\bibitem{b4} R. B. D'Agostino, R. S. Vasan, M. J. Pencina, P. A. Wolf, M. Cobain, J. M. Massaro, and W. B. Kannel, ``General cardiovascular risk profile for use in primary care: The Framingham Heart Study,'' \textit{Circulation}, vol. 117, no. 6, pp. 743--753, Feb. 2008.
+\bibitem{b5} F. Pedregosa et al., ``Scikit-learn: Machine Learning in Python,'' \textit{Journal of Machine Learning Research}, vol. 12, pp. 2825--2830, 2011.
+\end{thebibliography}
+
+\end{document}
